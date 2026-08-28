@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Painel de Leads — Inuv Conecta</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@800&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+  :root{
+    --blue-950:#031233;
+    --blue-900:#062066;
+    --blue-800:#0249d2;
+    --blue-700:#1a5fe0;
+    --paper:#f7f9ff;
+    --paper-dim:#9fb3e8;
+    --lime:#d7ff01;
+    --lime-dim:#a8c701;
+    --warn:#ff9a3c;
+    --danger:#ff5c5c;
+    --line: rgba(215,255,1,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--blue-950);
+    color:var(--paper);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:32px 20px 80px;}
+
+  .brand-name{
+    font-family:'Poppins',sans-serif;font-weight:800;
+    font-size:clamp(24px,6vw,32px);color:var(--lime);margin-bottom:4px;
+  }
+  .subtitle{color:var(--paper-dim);font-size:14px;margin-bottom:28px;}
+
+  /* Login screen */
+  .login-box{
+    max-width:380px;margin:80px auto;background:var(--blue-900);
+    border:1px solid var(--line);border-radius:14px;padding:28px;
+  }
+  .login-box input{
+    width:100%;padding:12px 14px;margin-bottom:10px;border-radius:8px;
+    border:1px solid var(--line);background:var(--blue-800);color:var(--paper);
+    font-family:'Inter',sans-serif;font-size:15px;
+  }
+  .login-box button{
+    width:100%;padding:12px;border-radius:8px;border:none;
+    background:var(--lime);color:var(--blue-950);font-weight:700;font-size:15px;
+    cursor:pointer;
+  }
+  .login-error{color:var(--danger);font-size:13px;margin-top:8px;min-height:16px;}
+
+  /* Dashboard */
+  .stats-row{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
+  .stat-card{
+    flex:1;min-width:120px;background:var(--blue-900);border:1px solid var(--line);
+    border-radius:10px;padding:14px;
+  }
+  .stat-num{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:var(--lime);}
+  .stat-label{font-size:12px;color:var(--paper-dim);margin-top:2px;}
+
+  .filter-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .filter-btn{
+    padding:8px 14px;border-radius:20px;border:1px solid var(--line);
+    background:transparent;color:var(--paper-dim);font-size:13px;cursor:pointer;
+  }
+  .filter-btn.active{background:var(--lime);color:var(--blue-950);border-color:var(--lime);font-weight:600;}
+
+  .lead-card{
+    background:var(--blue-900);border:1px solid var(--line);border-radius:12px;
+    padding:16px;margin-bottom:12px;
+  }
+  .lead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;}
+  .lead-name{font-weight:700;font-size:16px;}
+  .lead-phone{color:var(--paper-dim);font-size:13px;margin-top:2px;}
+  .lead-date{color:var(--paper-dim);font-size:11px;font-family:'IBM Plex Mono',monospace;}
+  .lead-meta{margin-top:10px;font-size:13px;color:var(--paper-dim);}
+  .lead-meta b{color:var(--paper);}
+  .lead-profiles{margin-top:6px;font-size:12px;color:var(--paper-dim);}
+
+  .status-select{
+    margin-top:12px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);
+    background:var(--blue-800);color:var(--paper);font-size:13px;font-family:'Inter',sans-serif;
+  }
+  .status-select.status-novo{border-color:var(--paper-dim);}
+  .status-select.status-contatado{border-color:#5b9dff;}
+  .status-select.status-fechou{border-color:var(--lime);}
+  .status-select.status-nao_respondeu{border-color:var(--danger);}
+
+  .empty-state{text-align:center;color:var(--paper-dim);padding:60px 20px;}
+  .refresh-btn{
+    background:transparent;border:1px solid var(--line);color:var(--paper-dim);
+    padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;margin-bottom:16px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand-name">Painel de Leads</div>
+  <div class="subtitle">Inuv Conecta — acesso restrito</div>
+
+  <div id="login-screen">
+    <div class="login-box">
+      <input type="email" id="login-email" placeholder="E-mail">
+      <input type="password" id="login-password" placeholder="Senha">
+      <button id="login-btn">Entrar</button>
+      <div class="login-error" id="login-error"></div>
+    </div>
+  </div>
+
+  <div id="dashboard" style="display:none;">
+    <button class="refresh-btn" id="refresh-btn">↻ Atualizar</button>
+    <div class="stats-row" id="stats-row"></div>
+    <div class="filter-row" id="filter-row"></div>
+    <div id="leads-list"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ucdobprojwcpblpmzwdx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_HA_Z9pRxUIzRwzw7wA8UwQ_Y8DLcFzE';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const STATUS_LABELS = {
+  novo: 'Novo',
+  contatado: 'Contatado',
+  fechou: 'Fechou ✅',
+  nao_respondeu: 'Não respondeu',
+};
+
+let allLeads = [];
+let currentFilter = 'all';
+
+document.getElementById('login-btn').addEventListener('click', async ()=>{
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  const {data, error} = await supabaseClient.auth.signInWithPassword({email, password});
+  if(error){
+    errEl.textContent = 'E-mail ou senha inválidos.';
+    return;
+  }
+  showDashboard();
+});
+
+async function checkSession(){
+  const {data} = await supabaseClient.auth.getSession();
+  if(data.session){
+    showDashboard();
+  }
+}
+
+function showDashboard(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadLeads();
+}
+
+document.getElementById('refresh-btn').addEventListener('click', loadLeads);
+
+async function loadLeads(){
+  const {data, error} = await supabaseClient
+    .from('leads')
+    .select('*')
+    .order('created_at', {ascending:false});
+
+  if(error){
+    document.getElementById('leads-list').innerHTML = `<div class="empty-state">Erro ao carregar leads: ${error.message}</div>`;
+    return;
+  }
+  allLeads = data || [];
+  renderStats();
+  renderFilters();
+  renderLeads();
+}
+
+function renderStats(){
+  const total = allLeads.length;
+  const novos = allLeads.filter(l=>l.status==='novo').length;
+  const contatados = allLeads.filter(l=>l.status==='contatado').length;
+  const fechados = allLeads.filter(l=>l.status==='fechou').length;
+
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total de leads</div></div>
+    <div class="stat-card"><div class="stat-num">${novos}</div><div class="stat-label">Novos</div></div>
+    <div class="stat-card"><div class="stat-num">${contatados}</div><div class="stat-label">Contatados</div></div>
+    <div class="stat-card"><div class="stat-num">${fechados}</div><div class="stat-label">Fecharam ✅</div></div>
+  `;
+}
+
+function renderFilters(){
+  const filters = [
+    {key:'all', label:'Todos'},
+    {key:'novo', label:'Novos'},
+    {key:'contatado', label:'Contatados'},
+    {key:'fechou', label:'Fecharam'},
+    {key:'nao_respondeu', label:'Não respondeu'},
+  ];
+  document.getElementById('filter-row').innerHTML = filters.map(f=>
+    `<button class="filter-btn ${currentFilter===f.key?'active':''}" data-key="${f.key}">${f.label}</button>`
+  ).join('');
+
+  document.querySelectorAll('.filter-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      currentFilter = btn.dataset.key;
+      renderFilters();
+      renderLeads();
+    });
+  });
+}
+
+function renderLeads(){
+  const listEl = document.getElementById('leads-list');
+  const filtered = currentFilter==='all' ? allLeads : allLeads.filter(l=>l.status===currentFilter);
+
+  if(filtered.length === 0){
+    listEl.innerHTML = `<div class="empty-state">Nenhum lead encontrado.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(lead=>{
+    const date = new Date(lead.created_at).toLocaleString('pt-BR');
+    const profiles = (lead.selected_profiles || []).join(', ') || '—';
+    const metric = lead.plan_type === 'celular'
+      ? `${lead.calculated_gb || '—'} GB/mês`
+      : `${lead.calculated_down || '—'} Mbps ↓ / ${lead.calculated_up || '—'} Mbps ↑`;
+
+    return `
+      <div class="lead-card">
+        <div class="lead-top">
+          <div>
+            <div class="lead-name">${lead.name || 'Sem nome'}</div>
+            <div class="lead-phone">${lead.phone || '—'}</div>
+          </div>
+          <div class="lead-date">${date}</div>
+        </div>
+        <div class="lead-meta">
+          <b>Tipo:</b> ${lead.plan_type || '—'} · <b>Resultado:</b> ${metric} · <b>Plano recomendado:</b> ${lead.recommended_plan || '—'}
+        </div>
+        <div class="lead-profiles"><b>Perfis marcados:</b> ${profiles}</div>
+        <select class="status-select status-${lead.status}" data-id="${lead.id}">
+          ${Object.entries(STATUS_LABELS).map(([key,label])=>
+            `<option value="${key}" ${lead.status===key?'selected':''}>${label}</option>`
+          ).join('')}
+        </select>
+      </div>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.status-select').forEach(sel=>{
+    sel.addEventListener('change', async ()=>{
+      const id = sel.dataset.id;
+      const newStatus = sel.value;
+      sel.className = 'status-select status-' + newStatus;
+      const {error} = await supabaseClient.from('leads').update({status:newStatus}).eq('id', id);
+      if(!error){
+        const lead = allLeads.find(l=>l.id===id);
+        if(lead) lead.status = newStatus;
+        renderStats();
+      }
+    });
+  });
+}
+
+checkSession();
+</script>
+</body>
+</html>
