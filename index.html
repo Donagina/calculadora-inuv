@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Diagnóstico de Sinal — Inuv Internet</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+  :root{
+    --blue-950:#031233;
+    --blue-900:#062066;
+    --blue-800:#0249d2;
+    --blue-700:#1a5fe0;
+    --paper:#f7f9ff;
+    --paper-dim:#9fb3e8;
+    --lime:#d7ff01;
+    --lime-dim:#a8c701;
+    --warn:#ff9a3c;
+    --line: rgba(215,255,1,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--blue-950);
+    color:var(--paper);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:36px 20px 80px;}
+  header{margin-bottom:28px;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--lime);
+    margin-bottom:10px;
+  }
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:clamp(28px,5vw,42px);
+    line-height:1.05;
+    margin:0 0 10px;
+    font-weight:700;
+  }
+  .sub{color:var(--paper-dim);font-size:15px;max-width:560px;line-height:1.5;}
+
+  .layout{display:grid;grid-template-columns:1fr;gap:28px;}
+  @media(min-width:840px){.layout{grid-template-columns:1.15fr .85fr;}}
+
+  .card{
+    background:var(--blue-900);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px;
+  }
+  .section-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--paper-dim);
+    margin:0 0 16px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .section-title .n{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--lime);
+  }
+
+  .profile{
+    border-top:1px solid var(--line);
+    padding:14px 0;
+  }
+  .profile:first-of-type{border-top:none;padding-top:0;}
+  .profile-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    cursor:pointer;
+    gap:12px;
+  }
+  .profile-name{font-weight:600;font-size:15px;}
+  .profile-meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--paper-dim);margin-top:3px;}
+
+  .toggle{
+    width:44px;height:26px;border-radius:14px;background:var(--blue-700);
+    position:relative;flex-shrink:0;transition:background .15s ease;
+  }
+  .toggle::after{
+    content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+    background:var(--paper-dim);transition:all .15s ease;
+  }
+  .toggle.on{background:var(--lime-dim);}
+  .toggle.on::after{left:21px;background:var(--blue-950);}
+
+  .qty-row{
+    display:flex;align-items:center;gap:10px;margin-top:12px;
+  }
+  .qty-row.hidden{display:none;}
+  .qty-label{font-size:12px;color:var(--paper-dim);flex:1;}
+  .stepper{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .stepper button{
+    width:30px;height:30px;background:var(--blue-800);color:var(--paper);border:none;
+    font-size:16px;cursor:pointer;font-family:'IBM Plex Mono',monospace;
+  }
+  .stepper button:hover{background:var(--blue-700);}
+  .stepper .val{
+    width:34px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:14px;
+  }
+
+  /* Right column - meter */
+  .meter-card{position:sticky;top:20px;}
+  .readout{
+    display:flex;gap:14px;margin-bottom:20px;
+  }
+  .metric{flex:1;background:var(--blue-800);border-radius:10px;padding:14px 14px 12px;}
+  .metric-label{font-size:11px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:.06em;}
+  .metric-value{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:26px;font-weight:600;color:var(--lime);margin-top:4px;
+  }
+  .metric-value span{font-size:13px;color:var(--paper-dim);font-weight:500;}
+
+  .bars-wrap{margin:22px 0 8px;}
+  .bar-row{margin-bottom:14px;}
+  .bar-top{display:flex;justify-content:space-between;font-size:11px;color:var(--paper-dim);margin-bottom:6px;font-family:'IBM Plex Mono',monospace;}
+  .bar-track{height:10px;background:var(--blue-800);border-radius:6px;overflow:hidden;position:relative;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--lime-dim),var(--lime));border-radius:6px;transition:width .25s ease;width:0%;}
+  .bar-fill.over{background:linear-gradient(90deg,#c96b2c,var(--warn));}
+
+  .plan-result{
+    margin-top:22px;padding-top:20px;border-top:1px solid var(--line);
+  }
+  .plan-pick{
+    background:var(--blue-800);
+    border:1px solid var(--lime-dim);
+    border-radius:12px;
+    padding:16px;
+  }
+  .plan-tag{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--lime);text-transform:uppercase;letter-spacing:.08em;}
+  .plan-name{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;margin:6px 0 2px;}
+  .plan-price{color:var(--paper-dim);font-size:14px;margin-bottom:10px;}
+  .plan-note{font-size:12.5px;color:var(--paper-dim);line-height:1.5;}
+
+  .type-switch{display:flex;gap:8px;margin-bottom:18px;}
+  .type-switch button{
+    flex:1;padding:9px;border-radius:8px;border:1px solid var(--line);
+    background:transparent;color:var(--paper-dim);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;
+  }
+  .type-switch button.active{background:var(--lime);color:var(--blue-950);border-color:var(--lime);}
+
+  .honesty-note{
+    margin-top:16px;font-size:12px;color:var(--paper-dim);
+    border-left:2px solid var(--lime-dim);padding-left:10px;line-height:1.5;
+  }
+
+  .level-row{display:flex;gap:6px;margin-top:12px;}
+  .level-row.hidden{display:none;}
+  .level-btn{
+    flex:1;padding:7px 4px;border-radius:7px;border:1px solid var(--line);
+    background:transparent;color:var(--paper-dim);font-size:11.5px;font-weight:600;
+    cursor:pointer;font-family:'Inter',sans-serif;text-align:center;
+  }
+  .level-btn.active{background:var(--lime-dim);color:var(--blue-950);border-color:var(--lime-dim);}
+
+  .lead-form{margin-top:16px;padding-top:16px;border-top:1px solid var(--line);}
+  .lead-title{font-size:12px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+  .lead-input{
+    width:100%;padding:10px 12px;margin-bottom:8px;border-radius:8px;
+    border:1px solid var(--line);background:var(--blue-800);color:var(--paper);
+    font-family:'Inter',sans-serif;font-size:13.5px;
+  }
+  .lead-input::placeholder{color:var(--paper-dim);}
+  .lead-btn{
+    width:100%;padding:11px;border-radius:8px;border:none;
+    background:var(--lime);color:var(--blue-950);font-weight:700;font-size:13.5px;
+    cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .lead-btn:hover{background:var(--lime-dim);}
+  .lead-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .lead-status{font-size:11.5px;color:var(--paper-dim);margin-top:8px;min-height:14px;}
+
+  .brand-row{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+  .logo-badge{
+    width:56px;height:56px;border-radius:50%;overflow:hidden;flex-shrink:0;
+    background:var(--lime);display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 2px var(--blue-800);
+  }
+  .logo-badge img{
+    width:100%;height:100%;object-fit:cover;object-position:center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand-row">
+      <div class="logo-badge"><img src="data:image/jpeg;base64,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" alt="Logo Inuv Internet"></div>
+      <div class="eyebrow" style="margin-bottom:0;">Diagnóstico de sinal · Inuv Internet</div>
+    </div>
+    <h1>Qual plano cabe no seu uso de verdade?</h1>
+    <p class="sub">Marque o que roda na sua casa, empresa ou celular. A gente soma o consumo real — e indica o plano que atende sem faltar banda nem sobrar dinheiro.</p>
+  </header>
+
+  <div class="layout">
+    <div class="card">
+      <div class="type-switch">
+        <button class="active" data-type="residencial">Residencial</button>
+        <button data-type="empresarial">Empresarial</button>
+        <button data-type="celular">Celular</button>
+      </div>
+      <div class="section-title" id="profiles-title">Perfis de uso <span class="n" id="count-active">0 ativos</span></div>
+      <div id="profiles"></div>
+    </div>
+
+    <div class="card meter-card">
+      <div class="section-title">Seu diagnóstico</div>
+      <div class="readout" id="readout"></div>
+
+      <div class="plan-result">
+        <div id="plan-box" class="plan-pick">
+          <div class="plan-tag">Recomendação</div>
+          <div class="plan-name" id="plan-name">Selecione seus usos</div>
+          <div class="plan-price" id="plan-price">—</div>
+          <div class="plan-note" id="plan-note">Marque ao menos um perfil ao lado pra começar o diagnóstico.</div>
+        </div>
+      </div>
+
+      <div class="lead-form" id="lead-form">
+        <div class="lead-title">Enviar esse diagnóstico</div>
+        <input type="text" id="lead-name" placeholder="Nome" class="lead-input">
+        <input type="tel" id="lead-phone" placeholder="WhatsApp (DDD + número)" class="lead-input">
+        <button id="lead-submit" class="lead-btn">Enviar para o comercial</button>
+        <div class="lead-status" id="lead-status"></div>
+      </div>
+
+      <div class="honesty-note" id="honesty-note">Cálculo já inclui 30% de margem de segurança (padrão técnico do setor) para evitar travamento com uso simultâneo.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURAÇÃO DO SUPABASE
+// Troque pelos dados do seu projeto (Project Settings → API)
+// ============================================================
+const SUPABASE_URL = 'https://ucdobprojwcpblpmzwdx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_HA_Z9pRxUIzRwzw7wA8UwQ_Y8DLcFzE';
+const WHATSAPP_COMERCIAL = '5500000000000'; // seu número com DDI+DDD, sem espaços/símbolos
+
+let supabaseClient = null;
+let usingSupabase = false;
+try {
+  if(SUPABASE_URL.startsWith('http') && window.supabase){
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    usingSupabase = true;
+  }
+} catch(e){ console.warn('Supabase não configurado, usando dados locais.', e); }
+
+// Dados locais de reserva (usados se o Supabase não estiver configurado
+// ou se a busca falhar por qualquer motivo — o site nunca fica quebrado)
+const FALLBACK_PROFILES = {
+  residencial: [
+    {id:'basico', name:'Streaming em TV/dispositivo', unit:'TV(s)', down:15, up:2, hasQty:true, defQty:1},
+    {id:'4k', name:'Streaming 4K', unit:'TV(s) em 4K', down:25, up:2, hasQty:true, defQty:0},
+    {id:'gamer', name:'Jogos competitivos', unit:null, down:10, up:3, hasQty:false},
+    {id:'cloudgame', name:'Jogo em nuvem (GeForce Now etc.)', unit:null, down:40, up:3, hasQty:false},
+    {id:'live', name:'Live de vendas (TikTok/Insta/FB/Shopee)', unit:'transmissão(ões) simultânea(s)', down:3, up:10, hasQty:true, defQty:1},
+    {id:'criador', name:'Criação/edição de vídeo', unit:null, down:15, up:15, hasQty:false},
+    {id:'infoproduto', name:'Aula ao vivo / infoproduto', unit:null, down:5, up:10, hasQty:false},
+    {id:'homeoffice', name:'Home office (videochamada)', unit:'pessoa(s) simultânea(s)', down:6, up:6, hasQty:true, defQty:1},
+    {id:'cam1080', name:'Câmera de segurança 1080p', unit:'câmera(s)', down:1, up:3, hasQty:true, defQty:0},
+    {id:'cam4k', name:'Câmera de segurança 4K', unit:'câmera(s)', down:2, up:8, hasQty:true, defQty:0},
+    {id:'automacao', name:'Automação (Alexa, fechadura, portão)', unit:null, down:1, up:1, hasQty:false},
+    {id:'marketplace', name:'Venda em marketplace', unit:null, down:5, up:8, hasQty:false},
+  ],
+  empresarial: [
+    {id:'equipe', name:'Funcionários/dispositivos na rede', unit:'pessoa(s)', down:5, up:5, hasQty:true, defQty:2},
+    {id:'cam1080e', name:'Câmera de segurança 1080p', unit:'câmera(s)', down:1, up:3, hasQty:true, defQty:0},
+    {id:'cam4ke', name:'Câmera de segurança 4K', unit:'câmera(s)', down:2, up:8, hasQty:true, defQty:0},
+    {id:'wificliente', name:'Wi-Fi para clientes', unit:null, down:15, up:3, hasQty:false},
+    {id:'pdv', name:'Sistema de PDV / estoque na nuvem', unit:null, down:5, up:5, hasQty:false},
+    {id:'liveempresa', name:'Live de vendas da marca', unit:'transmissão(ões) simultânea(s)', down:3, up:10, hasQty:true, defQty:0},
+    {id:'marketplacee', name:'Gestão de marketplace', unit:null, down:5, up:8, hasQty:false},
+    {id:'infoprodutoe', name:'Aula ao vivo / treinamento online', unit:null, down:5, up:10, hasQty:false},
+  ]
+};
+
+const FALLBACK_CELL_PROFILES = [
+  {id:'social', name:'Redes sociais (Instagram/Facebook/TikTok)', levels:[{label:'Leve',gb:3},{label:'Médio',gb:8},{label:'Intenso',gb:15}]},
+  {id:'whats', name:'WhatsApp (mensagens, fotos, chamadas de voz)', levels:[{label:'Leve',gb:1},{label:'Médio',gb:2},{label:'Intenso',gb:4}]},
+  {id:'gps', name:'Navegação (Waze/Uber/Google Maps)', levels:[{label:'Leve',gb:0.5},{label:'Médio',gb:1.5},{label:'Intenso',gb:3}]},
+  {id:'video', name:'Vídeo fora do Wi-Fi (YouTube/Netflix)', levels:[{label:'Leve',gb:2},{label:'Médio',gb:8},{label:'Intenso',gb:20}]},
+  {id:'videocall', name:'Videochamadas pelo celular', levels:[{label:'Leve',gb:1},{label:'Médio',gb:3},{label:'Intenso',gb:6}]},
+  {id:'liveMobile', name:'Live de vendas pelo celular (sem Wi-Fi)', levels:[{label:'Leve',gb:3},{label:'Médio',gb:8},{label:'Intenso',gb:18}]},
+  {id:'geral', name:'Navegação geral, e-mail, apps de banco', levels:[{label:'Leve',gb:1},{label:'Médio',gb:2},{label:'Intenso',gb:4}]},
+];
+
+const FALLBACK_PLANS = {
+  residencial: [
+    {name:'400 Mega', price:'R$ 79,90/mês', down:400, up:400},
+    {name:'700 Mega', price:'R$ 99,90/mês', down:700, up:700},
+    {name:'900 Mega', price:'R$ 129,90/mês', down:900, up:900},
+  ],
+  empresarial: [
+    {name:'500 Mega Empresarial', price:'R$ 119,90/mês', down:500, up:500},
+    {name:'700 Mega Empresarial', price:'R$ 139,90/mês', down:700, up:700},
+    {name:'900 Mega Empresarial', price:'R$ 169,90/mês', down:900, up:900},
+  ],
+  celular: [
+    {name:'Plano 11GB', price:'R$ 49,99/mês', gb:11},
+    {name:'Plano 16GB', price:'R$ 59,99/mês', gb:16},
+    {name:'Plano 23GB', price:'R$ 69,99/mês', gb:23},
+  ]
+};
+
+let PROFILES = FALLBACK_PROFILES;
+let CELL_PROFILES = FALLBACK_CELL_PROFILES;
+let PLANS = FALLBACK_PLANS;
+
+async function loadFromSupabase(){
+  if(!usingSupabase) return;
+  try{
+    const [{data: profilesData, error: profErr}, {data: plansData, error: planErr}] = await Promise.all([
+      supabaseClient.from('usage_profiles').select('*').order('sort_order'),
+      supabaseClient.from('plans').select('*').order('sort_order'),
+    ]);
+    if(profErr || planErr) throw (profErr || planErr);
+
+    const newProfiles = {residencial:[], empresarial:[]};
+    const newCellProfiles = [];
+    profilesData.forEach(row=>{
+      if(row.type === 'celular'){
+        newCellProfiles.push({id:row.profile_key, name:row.name, levels:row.levels});
+      } else {
+        newProfiles[row.type].push({
+          id:row.profile_key, name:row.name, unit:row.unit,
+          down:row.down_mbps, up:row.up_mbps,
+          hasQty:row.has_qty, defQty:row.def_qty
+        });
+      }
+    });
+
+    const newPlans = {residencial:[], empresarial:[], celular:[]};
+    plansData.forEach(row=>{
+      if(row.type === 'celular'){
+        newPlans.celular.push({name:row.name, price:row.price_label, gb:row.gb});
+      } else {
+        newPlans[row.type].push({name:row.name, price:row.price_label, down:row.down_mbps, up:row.up_mbps});
+      }
+    });
+
+    if(newProfiles.residencial.length && newProfiles.empresarial.length && newCellProfiles.length){
+      PROFILES = newProfiles;
+      CELL_PROFILES = newCellProfiles;
+      PLANS = newPlans;
+    }
+  } catch(e){
+    console.warn('Não foi possível carregar do Supabase, usando dados locais.', e);
+  }
+}
+
+const MARGIN = 1.3;
+const MARGIN_CELL = 1.15;
+let currentType = 'residencial';
+let state = {}; // id -> {on, qty} (internet) or {on, levelIdx} (celular)
+let lastResult = {down:0, up:0, gb:0};
+
+function initState(type){
+  state = {};
+  if(type === 'celular'){
+    CELL_PROFILES.forEach(p=>{ state[p.id] = {on:false, levelIdx:1}; });
+  } else {
+    PROFILES[type].forEach(p=>{
+      state[p.id] = {on:false, qty: p.defQty || (p.hasQty?1:0)};
+    });
+  }
+}
+initState(currentType);
+
+const profilesEl = document.getElementById('profiles');
+
+function renderReadout(){
+  const readout = document.getElementById('readout');
+  const honestyNote = document.getElementById('honesty-note');
+  if(currentType === 'celular'){
+    readout.innerHTML = `
+      <div class="metric" style="flex:1;">
+        <div class="metric-label">Consumo estimado</div>
+        <div class="metric-value" id="gb-val">0 <span>GB/mês</span></div>
+      </div>`;
+    honestyNote.textContent = 'Cálculo já inclui 15% de margem de segurança sobre o consumo estimado de dados móveis por mês.';
+  } else {
+    readout.innerHTML = `
+      <div class="metric">
+        <div class="metric-label">Download</div>
+        <div class="metric-value" id="down-val">0 <span>Mbps</span></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Upload</div>
+        <div class="metric-value" id="up-val">0 <span>Mbps</span></div>
+      </div>`;
+    honestyNote.textContent = 'Cálculo já inclui 30% de margem de segurança (padrão técnico do setor) para evitar travamento com uso simultâneo.';
+  }
+}
+
+function renderProfiles(){
+  profilesEl.innerHTML = '';
+
+  if(currentType === 'celular'){
+    CELL_PROFILES.forEach(p=>{
+      const s = state[p.id];
+      const div = document.createElement('div');
+      div.className = 'profile';
+      div.innerHTML = `
+        <div class="profile-head" data-id="${p.id}">
+          <div>
+            <div class="profile-name">${p.name}</div>
+            <div class="profile-meta">${p.levels.map(l=>l.label+' '+l.gb+'GB').join(' · ')}</div>
+          </div>
+          <div class="toggle ${s.on?'on':''}" data-id="${p.id}"></div>
+        </div>
+        <div class="level-row ${s.on?'':'hidden'}" data-level-for="${p.id}">
+          ${p.levels.map((l,i)=>`<button class="level-btn ${s.levelIdx===i?'active':''}" data-id="${p.id}" data-idx="${i}">${l.label}</button>`).join('')}
+        </div>
+      `;
+      profilesEl.appendChild(div);
+    });
+
+    profilesEl.querySelectorAll('.profile-head').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const id = el.dataset.id;
+        state[id].on = !state[id].on;
+        renderProfiles();
+        calculate();
+      });
+    });
+    profilesEl.querySelectorAll('.level-btn').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        state[id].levelIdx = parseInt(btn.dataset.idx,10);
+        renderProfiles();
+        calculate();
+      });
+    });
+  } else {
+    PROFILES[currentType].forEach(p=>{
+      const s = state[p.id];
+      const div = document.createElement('div');
+      div.className = 'profile';
+      div.innerHTML = `
+        <div class="profile-head" data-id="${p.id}">
+          <div>
+            <div class="profile-name">${p.name}</div>
+            <div class="profile-meta">↓ ${p.down} Mbps · ↑ ${p.up} Mbps ${p.unit ? 'por '+p.unit.split('(')[0].trim() : ''}</div>
+          </div>
+          <div class="toggle ${s.on?'on':''}" data-id="${p.id}"></div>
+        </div>
+        ${p.hasQty ? `
+        <div class="qty-row ${s.on?'':'hidden'}" data-qty-for="${p.id}">
+          <div class="qty-label">Quantos ${p.unit}?</div>
+          <div class="stepper">
+            <button data-act="dec" data-id="${p.id}">−</button>
+            <div class="val" id="val-${p.id}">${s.qty}</div>
+            <button data-act="inc" data-id="${p.id}">+</button>
+          </div>
+        </div>` : ''}
+      `;
+      profilesEl.appendChild(div);
+    });
+
+    profilesEl.querySelectorAll('.profile-head').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const id = el.dataset.id;
+        state[id].on = !state[id].on;
+        if(state[id].on && state[id].qty === 0) state[id].qty = 1;
+        renderProfiles();
+        calculate();
+      });
+    });
+    profilesEl.querySelectorAll('.stepper button').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        if(btn.dataset.act==='inc') state[id].qty++;
+        else state[id].qty = Math.max(0,state[id].qty-1);
+        document.getElementById('val-'+id).textContent = state[id].qty;
+        calculate();
+      });
+    });
+  }
+
+  document.getElementById('count-active').textContent =
+    Object.values(state).filter(s=>s.on).length + ' ativos';
+}
+
+function calculateCelular(){
+  let gb = 0;
+  CELL_PROFILES.forEach(p=>{
+    const s = state[p.id];
+    if(!s.on) return;
+    gb += p.levels[s.levelIdx].gb;
+  });
+  gb = Math.round(gb*MARGIN_CELL*10)/10;
+  lastResult = {down:0, up:0, gb};
+
+  document.getElementById('gb-val').innerHTML = gb + ' <span>GB/mês</span>';
+
+  const anyActive = Object.values(state).some(s=>s.on);
+  const nameEl = document.getElementById('plan-name');
+  const priceEl = document.getElementById('plan-price');
+  const noteEl = document.getElementById('plan-note');
+
+  if(!anyActive){
+    nameEl.textContent = 'Selecione seus usos';
+    priceEl.textContent = '—';
+    noteEl.textContent = 'Marque ao menos um uso do celular ao lado pra começar o diagnóstico.';
+    return;
+  }
+
+  const plans = PLANS.celular;
+  let pick = plans.find(pl => pl.gb >= gb);
+  if(!pick) pick = plans[plans.length-1];
+
+  nameEl.textContent = pick.name;
+  priceEl.textContent = pick.price + ' · R$10 de desconto se já é cliente de internet Inuv';
+
+  if(gb > plans[plans.length-1].gb){
+    noteEl.textContent = `Seu uso passa dos ${plans[plans.length-1].gb} GB do maior plano móvel. Vale reforçar hábito de usar Wi-Fi em casa/trabalho pra vídeo e redes sociais, ou considerar um segundo chip.`;
+  } else {
+    const folga = Math.round((pick.gb - gb)*10)/10;
+    noteEl.textContent = `Esse plano cobre seu uso com cerca de ${folga} GB de folga por mês (já com margem de segurança) — sem pagar por franquia que não vai usar.`;
+  }
+}
+
+function calculate(){
+  if(currentType === 'celular'){
+    calculateCelular();
+    return;
+  }
+
+  let down=0, up=0;
+  PROFILES[currentType].forEach(p=>{
+    const s = state[p.id];
+    if(!s.on) return;
+    const mult = p.hasQty ? Math.max(s.qty,1) : 1;
+    down += p.down * mult;
+    up += p.up * mult;
+  });
+  down = Math.round(down*MARGIN);
+  up = Math.round(up*MARGIN);
+  lastResult = {down, up, gb:0};
+  document.getElementById('down-val').innerHTML = down + ' <span>Mbps</span>';
+  document.getElementById('up-val').innerHTML = up + ' <span>Mbps</span>';
+
+  const anyActive = Object.values(state).some(s=>s.on);
+  const nameEl = document.getElementById('plan-name');
+  const priceEl = document.getElementById('plan-price');
+  const noteEl = document.getElementById('plan-note');
+
+  if(!anyActive){
+    nameEl.textContent = 'Selecione seus usos';
+    priceEl.textContent = '—';
+    noteEl.textContent = 'Marque ao menos um perfil ao lado pra começar o diagnóstico.';
+    return;
+  }
+
+  const plans = PLANS[currentType];
+  const needed = Math.max(down, up);
+  let pick = plans.find(pl => pl.down >= needed);
+  if(!pick) pick = plans[plans.length-1];
+
+  nameEl.textContent = pick.name;
+  priceEl.textContent = pick.price;
+
+  if(needed > plans[plans.length-1].down){
+    noteEl.textContent = `Seu uso passa da capacidade do maior plano (${plans[plans.length-1].down} Mbps). Vale considerar mais de uma conexão ou falar com a Inuv sobre um link dedicado.`;
+  } else {
+    const folga = pick.down - needed;
+    noteEl.textContent = `Esse plano cobre seu uso com ${folga} Mbps de folga (já com a margem de segurança aplicada) — sem pagar por banda que você não vai usar.`;
+  }
+}
+
+document.querySelectorAll('.type-switch button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.type-switch button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentType = btn.dataset.type;
+    initState(currentType);
+    renderReadout();
+    renderProfiles();
+    calculate();
+  });
+});
+
+// ============================================================
+// Envio de lead (nome + WhatsApp) pro Supabase + abrir WhatsApp
+// ============================================================
+document.getElementById('lead-submit').addEventListener('click', async ()=>{
+  const nameEl = document.getElementById('lead-name');
+  const phoneEl = document.getElementById('lead-phone');
+  const statusEl = document.getElementById('lead-status');
+  const btn = document.getElementById('lead-submit');
+
+  const name = nameEl.value.trim();
+  const phone = phoneEl.value.trim();
+
+  if(!name || !phone){
+    statusEl.textContent = 'Preencha nome e WhatsApp.';
+    return;
+  }
+
+  const activeProfiles = Object.entries(state)
+    .filter(([id,s])=>s.on)
+    .map(([id,s])=>id);
+
+  const planNameEl = document.getElementById('plan-name');
+  const recommendedPlan = planNameEl ? planNameEl.textContent : null;
+
+  const leadRow = {
+    name, phone,
+    plan_type: currentType,
+    selected_profiles: activeProfiles,
+    calculated_down: currentType !== 'celular' ? lastResult.down : null,
+    calculated_up: currentType !== 'celular' ? lastResult.up : null,
+    calculated_gb: currentType === 'celular' ? lastResult.gb : null,
+    recommended_plan: recommendedPlan,
+  };
+
+  btn.disabled = true;
+  statusEl.textContent = 'Enviando...';
+
+  if(usingSupabase){
+    try{
+      const {error} = await supabaseClient.from('leads').insert(leadRow);
+      if(error) throw error;
+      statusEl.textContent = 'Diagnóstico enviado! Redirecionando pro WhatsApp...';
+    } catch(e){
+      console.warn('Falha ao salvar lead no Supabase', e);
+      statusEl.textContent = 'Não deu pra salvar agora, mas vamos te chamar no WhatsApp mesmo assim.';
+    }
+  } else {
+    statusEl.textContent = 'Redirecionando pro WhatsApp...';
+  }
+
+  const metricText = currentType === 'celular'
+    ? `${lastResult.gb} GB/mês`
+    : `${lastResult.down} Mbps download / ${lastResult.up} Mbps upload`;
+
+  const msg = `Olá! Sou ${name}. Fiz o diagnóstico na calculadora da Inuv Internet (${currentType}) e o resultado foi: ${metricText}. Plano recomendado: ${recommendedPlan}. Podemos conversar?`;
+  const waUrl = `https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(msg)}`;
+
+  btn.disabled = false;
+  setTimeout(()=>{ window.open(waUrl, '_blank'); }, 600);
+});
+
+async function init(){
+  await loadFromSupabase();
+  initState(currentType);
+  renderReadout();
+  renderProfiles();
+  calculate();
+}
+init();
+
+</script>
+</body>
+</html>
