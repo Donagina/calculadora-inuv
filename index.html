@@ -24,7 +24,13 @@
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background:var(--blue-950);
+    background-color:var(--blue-950);
+    background-image:
+      radial-gradient(circle at 8px 8px, rgba(215,255,1,0.16) 1.5px, transparent 1.5px),
+      linear-gradient(rgba(215,255,1,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(215,255,1,0.05) 1px, transparent 1px);
+    background-size: 64px 64px, 64px 64px, 64px 64px;
+    background-attachment: fixed;
     color:var(--paper);
     font-family:'Inter',sans-serif;
     -webkit-font-smoothing:antialiased;
@@ -166,8 +172,11 @@
   .plan-note{font-size:16px;color:var(--paper-dim);line-height:1.6;}
 
   .trust-tag{
-    margin-top:14px;font-size:13.5px;color:var(--lime);
-    line-height:1.5;font-weight:500;
+    margin-top:14px;padding:10px 14px;border-radius:10px;
+    background:rgba(215,255,1,0.12);border:1px solid var(--lime-dim);
+    font-size:13.5px;color:var(--lime);
+    line-height:1.5;font-weight:600;
+    display:flex;align-items:center;gap:8px;
   }
 
   .type-switch{display:flex;gap:8px;margin-bottom:18px;}
@@ -295,7 +304,7 @@ const FALLBACK_PROFILES = {
     {id:'cam4k', name:'Câmera de segurança 4K', unit:'câmera(s)', down:1, up:10, hasQty:true, defQty:0},
     {id:'automacao', name:'Automação (Alexa, fechadura, portão)', unit:null, down:5, up:5, hasQty:false},
     {id:'marketplace', name:'Venda em marketplace', unit:null, down:35, up:15, hasQty:false},
-    {id:'celularwifi', name:'Uso de celular no dia a dia (redes sociais, vídeos, posts)', unit:'pessoa(s)', down:8, up:3, hasQty:true, defQty:1},
+    {id:'celularwifi', name:'Celulares em casa usando Wi-Fi (redes sociais, vídeos, posts)', unit:'celular(es)/pessoa(s)', down:8, up:3, hasQty:true, defQty:2},
     {id:'jogosmobile', name:'Jogos mobile para crianças (Free Fire, Roblox, Fortnite)', unit:'criança(s)', down:15, up:3, hasQty:true, defQty:0},
   ],
   empresarial: [
@@ -562,10 +571,10 @@ function calculateCelular(){
   priceEl.textContent = pick.price + ' · R$10 de desconto se já é cliente de internet Inuv';
 
   if(gb > plans[plans.length-1].gb){
-    noteEl.textContent = `Seu uso passa dos ${plans[plans.length-1].gb} GB do maior plano móvel. Vale reforçar hábito de usar Wi-Fi em casa/trabalho pra vídeo e redes sociais, ou considerar um segundo chip.`;
+    noteEl.innerHTML = `<strong style="color:var(--warn);font-size:16px;">Atenção: passa do maior plano móvel ⚠️</strong><br>Vale reforçar hábito de usar Wi-Fi em casa/trabalho, ou considerar um segundo chip.`;
   } else {
     const folga = Math.round((pick.gb - gb)*10)/10;
-    noteEl.textContent = `Esse plano cobre seu uso com cerca de ${folga} GB de folga por mês (já com margem de segurança) — sem pagar por franquia que não vai usar.`;
+    noteEl.innerHTML = `<strong style="color:var(--paper);font-size:16px;">Esse plano é suficiente pra você ✅</strong><br>Ainda sobram cerca de ${folga} GB/mês de folga (já com margem de segurança).`;
   }
 }
 
@@ -610,10 +619,10 @@ function calculate(){
   priceEl.textContent = pick.price;
 
   if(needed > plans[plans.length-1].down){
-    noteEl.textContent = `Seu uso passa da capacidade do maior plano (${plans[plans.length-1].down} Mbps). Vale considerar mais de uma conexão ou falar com a Inuv sobre um link dedicado.`;
+    noteEl.innerHTML = `<strong style="color:var(--warn);font-size:16px;">Atenção: passa do maior plano ⚠️</strong><br>Vale considerar mais de uma conexão ou falar com a Inuv sobre um link dedicado.`;
   } else {
     const folga = pick.down - needed;
-    noteEl.textContent = `Esse plano cobre seu uso com ${folga} Mbps de folga (já com a margem de segurança aplicada) — sem pagar por banda que você não vai usar.`;
+    noteEl.innerHTML = `<strong style="color:var(--paper);font-size:16px;">Esse plano é suficiente pra você ✅</strong><br>Sobram ${folga} Mbps de folga (já com margem de segurança).`;
   }
 }
 
