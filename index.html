@@ -417,6 +417,7 @@ async function loadFromSupabase(){
 
 const MARGIN = 1.3;
 const MARGIN_CELL = 1.15;
+const MAX_QTY = 100; // limite de segurança por item, evita valores absurdos
 let currentType = 'residencial';
 let state = {}; // id -> {on, qty} (internet) or {on, levelIdx} (celular)
 let lastResult = {down:0, up:0, gb:0};
@@ -512,7 +513,7 @@ function renderProfiles(){
           <div class="qty-label">Quantos ${p.unit}?</div>
           <div class="stepper">
             <button data-act="dec" data-id="${p.id}">−</button>
-            <input class="val-input" id="val-${p.id}" data-id="${p.id}" type="number" inputmode="numeric" min="0" value="${s.qty}">
+            <input class="val-input" id="val-${p.id}" data-id="${p.id}" type="number" inputmode="numeric" min="0" max="${MAX_QTY}" value="${s.qty}">
             <button data-act="inc" data-id="${p.id}">+</button>
           </div>
         </div>` : ''}
@@ -533,7 +534,7 @@ function renderProfiles(){
       btn.addEventListener('click', (e)=>{
         e.stopPropagation();
         const id = btn.dataset.id;
-        if(btn.dataset.act==='inc') state[id].qty++;
+        if(btn.dataset.act==='inc') state[id].qty = Math.min(state[id].qty+1, MAX_QTY);
         else state[id].qty = Math.max(0,state[id].qty-1);
         document.getElementById('val-'+id).value = state[id].qty;
         calculate();
@@ -545,6 +546,7 @@ function renderProfiles(){
         const id = inp.dataset.id;
         let v = parseInt(inp.value, 10);
         if(isNaN(v) || v < 0) v = 0;
+        if(v > MAX_QTY) v = MAX_QTY;
         state[id].qty = v;
         inp.value = v;
         calculate();
