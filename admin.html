@@ -97,6 +97,22 @@
     background:transparent;border:1px solid var(--line);color:var(--paper-dim);
     padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;margin-bottom:16px;
   }
+
+  .view-switch{display:flex;gap:8px;margin-bottom:16px;}
+  .view-btn{
+    padding:9px 16px;border-radius:8px;border:1px solid var(--line);
+    background:transparent;color:var(--paper-dim);font-size:13.5px;font-weight:600;cursor:pointer;
+  }
+  .view-btn.active{background:var(--lime);color:var(--blue-950);border-color:var(--lime);}
+
+  .intel-section{margin-bottom:28px;}
+  .intel-title{font-size:14px;font-weight:700;color:var(--lime);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em;}
+  .bar-row{margin-bottom:10px;}
+  .bar-row-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;}
+  .bar-row-top .count{font-family:'IBM Plex Mono',monospace;color:var(--lime);}
+  .bar-track{height:10px;background:var(--blue-900);border-radius:6px;overflow:hidden;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--lime-dim),var(--lime));border-radius:6px;}
+  .intel-empty{color:var(--paper-dim);font-size:13px;padding:20px 0;}
 </style>
 </head>
 <body>
@@ -115,10 +131,19 @@
 
   <div id="dashboard" style="display:none;">
     <div id="whoami" style="font-size:11px;color:var(--paper-dim);opacity:0.6;margin-bottom:14px;"></div>
+    <div class="view-switch">
+      <button class="view-btn active" data-view="leads">Leads</button>
+      <button class="view-btn" data-view="intel">Inteligência de Mercado</button>
+    </div>
     <button class="refresh-btn" id="refresh-btn">↻ Atualizar</button>
-    <div class="stats-row" id="stats-row"></div>
-    <div class="filter-row" id="filter-row"></div>
-    <div id="leads-list"></div>
+
+    <div id="view-leads">
+      <div class="stats-row" id="stats-row"></div>
+      <div class="filter-row" id="filter-row"></div>
+      <div id="leads-list"></div>
+    </div>
+
+    <div id="view-intel" style="display:none;"></div>
   </div>
 </div>
 
@@ -278,6 +303,107 @@ function renderLeads(){
 }
 
 checkSession();
+
+// ============================================================
+// Inteligência de Mercado
+// ============================================================
+const PROFILE_LABELS = {
+  basico:'Streaming em TV/dispositivo', '4k':'Streaming 4K', gamer:'Jogos competitivos',
+  cloudgame:'Jogo em nuvem', live:'Live de vendas (redes sociais)', criador:'Criação/edição de vídeo',
+  infoproduto:'Aula ao vivo / infoproduto', homeoffice:'Home office', cam1080:'Câmera 1080p',
+  cam4k:'Câmera 4K', automacao:'Automação residencial', marketplace:'Venda em marketplace',
+  celularwifi:'Celulares em casa (Wi-Fi)', jogosmobile:'Jogos mobile (crianças)',
+  equipe:'Funcionários/dispositivos', cam1080e:'Câmera 1080p (empresa)', cam4ke:'Câmera 4K (empresa)',
+  wificliente:'Wi-Fi para clientes', pdv:'Sistema de PDV', liveempresa:'Live de vendas da marca',
+  marketplacee:'Gestão de marketplace', infoprodutoe:'Treinamento online', celularwifie:'Celulares (funcionários)',
+  social:'Redes sociais', whats:'WhatsApp', gps:'Navegação (Waze/Maps)', video:'Vídeo fora do Wi-Fi',
+  videocall:'Videochamadas', liveMobile:'Live pelo celular', geral:'Navegação geral',
+};
+
+document.querySelectorAll('.view-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const view = btn.dataset.view;
+    document.getElementById('view-leads').style.display = view==='leads' ? 'block' : 'none';
+    document.getElementById('view-intel').style.display = view==='intel' ? 'block' : 'none';
+    if(view==='intel') renderIntelligence();
+  });
+});
+
+function barList(counts, total){
+  const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if(entries.length === 0) return '<div class="intel-empty">Sem dados suficientes ainda.</div>';
+  const max = entries[0][1];
+  return entries.map(([label,count])=>{
+    const pct = Math.round((count/max)*100);
+    const pctOfTotal = total ? Math.round((count/total)*100) : 0;
+    return `
+      <div class="bar-row">
+        <div class="bar-row-top"><span>${label}</span><span class="count">${count} (${pctOfTotal}%)</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  }).join('');
+}
+
+function renderIntelligence(){
+  const el = document.getElementById('view-intel');
+  const total = allLeads.length;
+
+  if(total === 0){
+    el.innerHTML = '<div class="intel-empty">Ainda não há leads suficientes pra gerar inteligência de mercado. Volte aqui depois que a calculadora tiver mais uso.</div>';
+    return;
+  }
+
+  // Por tipo de plano
+  const byType = {};
+  allLeads.forEach(l=>{
+    const t = l.plan_type || 'desconhecido';
+    byType[t] = (byType[t]||0) + 1;
+  });
+
+  // Por plano recomendado
+  const byPlan = {};
+  allLeads.forEach(l=>{
+    const p = l.recommended_plan || 'desconhecido';
+    byPlan[p] = (byPlan[p]||0) + 1;
+  });
+
+  // Por perfil de uso (frequência entre todos os leads)
+  const byProfile = {};
+  allLeads.forEach(l=>{
+    (l.selected_profiles || []).forEach(pid=>{
+      const label = PROFILE_LABELS[pid] || pid;
+      byProfile[label] = (byProfile[label]||0) + 1;
+    });
+  });
+
+  // Taxa de conversão
+  const fechou = allLeads.filter(l=>l.status==='fechou').length;
+  const convRate = total ? Math.round((fechou/total)*100) : 0;
+
+  el.innerHTML = `
+    <div class="intel-section">
+      <div class="intel-title">Resumo</div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Leads totais</div></div>
+        <div class="stat-card"><div class="stat-num">${convRate}%</div><div class="stat-label">Taxa de conversão</div></div>
+      </div>
+    </div>
+    <div class="intel-section">
+      <div class="intel-title">Tipo de plano mais buscado</div>
+      ${barList(byType, total)}
+    </div>
+    <div class="intel-section">
+      <div class="intel-title">Uso mais comum entre os leads</div>
+      ${barList(byProfile, total)}
+    </div>
+    <div class="intel-section">
+      <div class="intel-title">Planos mais recomendados</div>
+      ${barList(byPlan, total)}
+    </div>
+  `;
+}
 </script>
 </body>
 </html>
